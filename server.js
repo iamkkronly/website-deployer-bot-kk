@@ -2,7 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const usage = require('usage'); // For CPU monitoring
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,7 +11,7 @@ const TELEGRAM_FILE_API = `https://api.telegram.org/file/bot${BOT_TOKEN}`;
 
 app.use(express.json());
 
-// Serve user sites from /user/<chat_id>
+// Serve user websites at /user/<chat_id>
 app.use('/user/:id', (req, res, next) => {
   const userPath = path.join(__dirname, 'sites', req.params.id);
   if (fs.existsSync(path.join(userPath, 'index.html'))) {
@@ -22,7 +21,7 @@ app.use('/user/:id', (req, res, next) => {
   }
 });
 
-// Telegram bot webhook
+// Handle Telegram webhook
 app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
   const msg = req.body.message;
   if (!msg) return res.sendStatus(200);
@@ -57,7 +56,7 @@ app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
       file.data.pipe(dest);
 
       dest.on('finish', async () => {
-        await sendMessage(chatId, `✅ ${fileName} uploaded!\n🔗 View site: https://${process.env.RENDER_EXTERNAL_HOSTNAME}/user/${chatId}`);
+        await sendMessage(chatId, `✅ ${fileName} uploaded!\n🔗 View your site: https://${process.env.RENDER_EXTERNAL_HOSTNAME}/user/${chatId}`);
       });
     } catch (err) {
       await sendMessage(chatId, `⚠️ Upload failed: ${err.message}`);
@@ -67,30 +66,14 @@ app.post(`/bot${BOT_TOKEN}`, async (req, res) => {
   res.sendStatus(200);
 });
 
+// Send Telegram message
 async function sendMessage(chatId, text) {
-  try {
-    await axios.post(`${TELEGRAM_API}/sendMessage`, {
-      chat_id: chatId,
-      text: text
-    });
-  } catch (e) {
-    console.error('Telegram sendMessage error:', e.message);
-  }
+  await axios.post(`${TELEGRAM_API}/sendMessage`, {
+    chat_id: chatId,
+    text: text
+  });
 }
 
-// Auto-restart if CPU > 80%
-const CPU_LIMIT = 80;
-const CHECK_INTERVAL = 30000; // 30s
-
-setInterval(() => {
-  usage.lookup(process.pid, (err, stats) => {
-    if (!err && stats.cpu > CPU_LIMIT) {
-      console.warn(`⚠️ CPU ${stats.cpu.toFixed(2)}% > ${CPU_LIMIT}% — Restarting...`);
-      process.exit(1); // PM2 will auto-restart
-    }
-  });
-}, CHECK_INTERVAL);
-
 app.listen(PORT, () => {
-  console.log(`🚀 Server live at http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
